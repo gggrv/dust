@@ -37,8 +37,8 @@ class sample( QtWidgets.QMainWindow ):
     Everything about init.
     """ 
     def _init( self ):
-        self.setObjectName( 'editor' )
-        self.setWindowTitle( 'hit' )
+        self.setObjectName( 'sample' )
+        self.setWindowTitle( 'sample' )
         
 """-------------------------------------------------------------------------+++
 autorun
@@ -59,4 +59,4 @@ def autorun( parent, *argv ):
     w.show()
     
 #---------------------------------------------------------------------------+++
-# конец 2021.01.28 → 2021.02.03
+# конец 2021.03.06 → 2021.03.06

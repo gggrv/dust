@@ -105,7 +105,7 @@ class application( object ):
         self.app = QtWidgets.QApplication( sys.argv )
         self.w = mainwindow()
         #self.w.show()
-        self.w.showMinimized()
+        #self.w.showMinimized()
         
     def _init_tray( self ):
         # tray context menu

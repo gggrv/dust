@@ -58,10 +58,13 @@ class application( object ):
     # about pieces
     PIECES_ROOT = 'pieces' # where to look for pieces
     PIECE_FILE = 'main' # piece entrypoint python file
-    PIECES = {} # empty placeholder for pieces available
+    pieces = {} # empty placeholder for pieces available
     
     # about self
     MAY_TERMINATE = False # whether the app may terminate itself
+    
+    # debug console output control
+    DEBUG = True
     
     def __init__( self,
                   *args, **kwargs ):
@@ -77,7 +80,7 @@ class application( object ):
         
         # gui mainloop, exit app when done
         self.app.exec_()
-        print( 'exec' ) # debug
+        if self.DEBUG: print( 'exec' )
         self._traymenu_exitapp()
         
     """---------------------------------------------------------------------+++
@@ -95,22 +98,17 @@ class application( object ):
         os.startfile( os.getcwd() )
         
     def _traymenu_exitapp( self ):
-        # run uponhostdestruction methods of pieces
-        for piece in self.PIECES:
-            # get module
-            module = self.PIECES[piece]['module']
-            if type(module)==type(None): continue
+        """What to do when app terminates."""
         
-            # skip if there is no such method at all
-            try: getattr( module, 'uponhostdestruction' )
-            except AttributeError: return None
+        # run uponhostdestruction methods of pieces
+        for k in self.pieces:
         
             # get interaction object
-            ob = self.PIECES[piece]['object']
+            ob = self.pieces[k]['object']
             if type(ob)==type(None): continue
         
             # run the destructor
-            module.uponhostdestruction(ob)
+            ob.uponhostdestruction()
         
         # self-terminate
         QtCore.QCoreApplication.exit()
@@ -157,71 +155,62 @@ class application( object ):
     """
     def _seekpieces( self ):
         """Looks for pieces in the corr. directory, catalogues them,
-        saves them to self.PIECES.
+        saves them to self.pieces.
         """
-        self.PIECES = {} # clear pieces
+        self.pieces = {} # clear pieces
         for foldername in os.listdir( self.PIECES_ROOT ):
+            folderpath = os.path.join( self.PIECES_ROOT,foldername )
             
             # get piece enrty point - a python file
-            dest = os.path.join( self.PIECES_ROOT,foldername,self.PIECE_FILE )
+            dest = os.path.join( folderpath,self.PIECE_FILE )
             
             row = {
                 'path': dest, # path to the file↑
-                'module': None, # loaded module, currently not loaded
                 'load': os.path.exists(
-                    os.path.join(self.PIECES_ROOT,foldername,'load') ), # bool if i want to load this piece
-                'object': None, # object instance, currently not existing yet
+                    os.path.join(folderpath,'load')
+                    ), # bool if i want to load this piece
+                'module': None, # loaded module, currently not loaded
+                'object': None, # interaction object instance, currently not existing yet
                 }
             
-            self.PIECES.setdefault( foldername, row )
+            self.pieces.setdefault( foldername, row )
             
     def _dynaimport( self ):
         """-----------------------------------------------------------------+++
         Definitions.
         """
         
-        # tray menu that i will populate with corr. items
+        # host tray menu that i will populate with corr. items
         MENU = self.w.findChild( QtWidgets.QMenu,'traymenu' )
-                    
-        # what to do with the same methods (named the samed way)
-        # within any piece ↓↓↓
         
         def interaction_object():
-            """Gets piece's interaction object from the
-            piece's interaction_object method and sets it's parent.
+            """If the piece has a class named interaction_object,
+            I create an instance of that class and set it's parent
+            and link to the host object - this application class instance.
             """
-            # skip if there is no such method at all
+            # deal with interaction object...
+            # skip if there is no such class at all
             try: getattr( module, 'interaction_object' )
             except AttributeError: return None
             
-            # get the object (i expect some form of pyqt5 qwidget)
-            ob = module.interaction_object()
+            # get the object (i expect some sort of pyqt5 qwidget)
+            ob = module.interaction_object( parent=self.w, host_app=self )
             
-            # set it's parent to self.w
-            ob.parent = self.w
+            # save pointer to it for forther use
+            self.pieces[foldername]['object'] = ob
             
-            # create link with the application
-            ob.hostlink = self
             
-            # cache it for forther use
-            self.PIECES[foldername]['object'] = ob
-            
-        def inject_intotraymenu():
-            """Injects items into tray menu depending on the info within
-            piece's inject_intotraymenu method.
-            Depends on interaction_object!!!
-            """
+            # deal with injection into tray menu...
             # skip if there is no such method at all
-            try: getattr( module, 'inject_intotraymenu' )
+            try: getattr( ob, 'inject_intotraymenu' )
             except AttributeError: return None
-            
-            for action in module.inject_intotraymenu():
+            for action in ob.inject_intotraymenu():
                 a = MENU.addAction( action['text'] )
                 
                 if 'connect' in action:
-                    f = partial( action['connect'],
-                        interaction_object=self.PIECES[foldername]['object'] )
-                    a.triggered.connect( f )
+                    #f = partial( action['connect'], interaction_object=self.pieces[foldername]['object'] )
+                    #a.triggered.connect( f )
+                    a.triggered.connect( action['connect'] )
                     
                 if 'icon' in action:
                     iconpath = os.path.join( self.PIECES_ROOT, foldername,
@@ -231,18 +220,19 @@ class application( object ):
         """-----------------------------------------------------------------+++
         Actual code.
         """
-        for foldername, pieceinfo in self.PIECES.items():
+        for foldername, piece in self.pieces.items():
             # skip the ones i don't want to load
-            if not pieceinfo['load']: continue
+            if not piece['load']: continue
         
             # import the piece module
-            modulename = pieceinfo['path'].replace('\\','.')
+            modulename = piece['path'].replace('\\','.')
             module = importlib.import_module( modulename )
-            self.PIECES[foldername]['module'] = module
+            self.pieces[foldername]['module'] = module
             
             # access it's data
             interaction_object()
-            inject_intotraymenu()
+        
+            if self.DEBUG: print( 'loaded piece "%s".'%foldername )
         
 """-------------------------------------------------------------------------+++
 autorun
@@ -254,4 +244,4 @@ if __name__ == '__main__':
     autorun()
     
 #---------------------------------------------------------------------------+++
-# конец 2021.02.03 → 2021.03.28
+# конец 2021.02.03 → 2021.03.31

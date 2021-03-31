@@ -76,18 +76,22 @@ class ghostwindow( QtWidgets.QDialog ):
         lyt.addWidget( lab )
         self.setLayout( lyt )
 
-class emptiness( QtWidgets.QMainWindow ):
+class interaction_object( QtWidgets.QMainWindow ):
     
     subwindows = []
     
     def __init__( self,
                   parent=None,
+                  host_app=None,
                   *args, **kwargs ):
-        super( emptiness, self ).__init__( parent, *args, **kwargs )
+        super( interaction_object, self ).__init__( parent, *args, **kwargs )
+        
+        # pointer to the host application
+        self.host = host_app
         
         # gui
         self._init()
-        #self._spawn_windows()
+        self._spawn_windows() # they are hidden
     
     """---------------------------------------------------------------------+++
     Everything about subwindows.
@@ -104,7 +108,7 @@ class emptiness( QtWidgets.QMainWindow ):
             # hover leave???
             #elif ev.type()==11: ob.subEvFilter11(ev)
             
-        return super(emptiness,self).eventFilter( ob, ev )
+        return super(interaction_object,self).eventFilter( ob, ev )
     
     def _spawn_windows( self ):
         """Spawns a hidden subwindow on each screen."""
@@ -129,7 +133,10 @@ class emptiness( QtWidgets.QMainWindow ):
             
             # remember link to it for faster navigation
             self.subwindows.append( w )
-            
+    
+    def show_subwindows( self ):
+        """Starts showing hidden subwindows on each screen."""
+        for w in self.subwindows:
             w.show()
         
     """---------------------------------------------------------------------+++
@@ -138,42 +145,23 @@ class emptiness( QtWidgets.QMainWindow ):
     def _init( self ):
         self.setObjectName( 'emptiness' )
         
-"""-------------------------------------------------------------------------+++
-autorun
-"""
-def interaction_object():
-    """Is there any object that allows further interaction with this piece?"""
-    emp = emptiness()
-    return emp
-
-def inject_intotraymenu():
-    """What to add to the host tray menu.
-    Depends on interaction_object from the host side!
+    """---------------------------------------------------------------------+++
+    Everything about link to the host.
     """
-    actions = [
-        {
-            'text': 'emptiness',
-            'connect': trayrun,
-            'icon': 'icon.png',
-            },
-        ]
-    return actions
+    def uponhostdestruction( self ):
+        """What to do when the host terminates."""
+        for w in self.subwindows: w.destroy()
+        self.destroy()
     
-def uponhostdestruction( interaction_object ):
-    """What to do when the host terminates.
-    Depends on interaction_object!
-    """
-    ob = interaction_object # shorter name
-    for w in ob.subwindows: w.destroy()
-    ob.destroy()
-    
-def trayrun( interaction_object ):
-    """What to do when the corr. to this piece tray menu item
-    in the host is clicked.
-    Depends on interaction_object!
-    """
-    ob = interaction_object # shorter name
-    ob._spawn_windows()
+    def inject_intotraymenu( self ):
+        actions = [
+            {
+                'text': 'emptiness',
+                'connect': self.show_subwindows,
+                'icon': 'icon.png'
+                },
+            ]
+        return actions
     
 #---------------------------------------------------------------------------+++
-# конец 2021.03.27 → 2021.03.28
+# конец 2021.03.27 → 2021.03.31

@@ -5,6 +5,7 @@ Script main.
 """
 
 # embedded in python
+from time import sleep
 # pip install
 from numpy import int
 import pyautogui
@@ -20,9 +21,6 @@ class followindow( QtWidgets.QDialog ):
     # followindow dimensions
     bigger_dims = [300,300] # when enlarged
     smaller_dims = [10,10] # when small
-    
-    # smooth movement timer
-    smoothmove_time = 5
     
     def __init__( self,
                   parent=None,
@@ -43,9 +41,7 @@ class followindow( QtWidgets.QDialog ):
         self.destroy()
         ev.ignore() # !!!
         
-    def subEvFilter10( self, ev ):
-        # hover enter???
-        
+    def mouseEnter( self, ev ):
         # show enlarged window, mouse in the middle
         # current dims and coords
         cx,cy = self.x(), self.y()
@@ -57,12 +53,10 @@ class followindow( QtWidgets.QDialog ):
         self.resize( nw,nh )
         self.move( cx-nw//2, cy-nh//2 )
         
-        # focus
+        # keyboard focus
         self.setFocus()
         
-    def subEvFilter11( self, ev ):
-        # hover exit???
-        
+    def mouseLeave( self, ev ):
         # show small window near the mouse
         # current dims and coords
         cw,ch = self.width(),self.height()
@@ -75,42 +69,26 @@ class followindow( QtWidgets.QDialog ):
         self.resize( nw,nh )
         self.move( cx+cw//2, cy+ch//2 )
         
-    def _smallmove( self ):
-        self.smoothtimer.stop()
+    def teleport( self, x,y ):
+        smallest_dim = min(self.smaller_dims)
+        amount = 2
+        halfamount = amount//2
+        frames = smallest_dim//amount-1
         
-        cx,cy = self._cx,self._cy
-        nx,ny = self._nx,self._ny
-        
-        """
-        dx = (nx-cx)//self.smoothmove_time
-        dy = (ny-cy)//self.smoothmove_time
-        self.move( cx+dx, cy+dy )
-        """
-        
-        #"""
-        b_chis = (nx*cy)-(cx*ny)
-        b_znam = nx-cx
-        if b_znam==0: b_znam=1
-        b = b_chis/b_znam
-        k = (ny-b)/1 if nx==0 else (ny-b)/nx
-        
-        # for smoother movement
-        if abs(nx-cx)>abs(ny-cy):
-            step = 1 if cx<nx else -1
-            for x in range( cx,nx,step ):
-                y = int(k*x+b)
-                self.move( x, y )
-        else:
-            step = 1 if cy<ny else -1
-            for y in range( cy,ny,step ):
-                x = int( (y-b)/k )
-                self.move( x, y )
-        #"""
-        
-    def smoothmove( self, cx,cy,nx,ny ):
-        self._cx,self._cy=cx,cy
-        self._nx,self._ny=nx,ny
-        self.smoothtimer.start()
+        # shrink in place
+        for _ in range( frames ):
+            self.resize( self.width()-amount, self.height()-amount )
+            self.move( self.x()+halfamount,self.y()+halfamount )
+            sleep(0.05)
+        self.hide()
+        self.move( x,y )
+        self.resize( 1, 1 )
+        self.show()
+        # grow in place
+        for _ in range( frames ):
+            self.resize( self.width()+amount, self.height()+amount )
+            self.move( self.x()-halfamount,self.y()-halfamount )
+            sleep(0.08)
         
     """---------------------------------------------------------------------+++
     Everything about init.
@@ -125,10 +103,6 @@ class followindow( QtWidgets.QDialog ):
         # i want to access mouse and keyboard input
         #self.setMouseTracking( True )
         self.setFocusPolicy( QtCore.Qt.StrongFocus )
-        
-        self.smoothtimer = QtCore.QTimer( self )
-        self.smoothtimer.setInterval( self.smoothmove_time )
-        self.smoothtimer.timeout.connect( self._smallmove )
         
     def _init_staticwidgets( self ):
         
@@ -177,11 +151,11 @@ class interaction_object( QtWidgets.QMainWindow ):
             # hover enter???
             if ev.type()==10:
                 self.follotimer.stop()
-                ob.subEvFilter10(ev)
+                ob.mouseEnter(ev)
             # hover leave???
             elif ev.type()==11:
                 self.follotimer.start()
-                ob.subEvFilter11(ev)
+                ob.mouseLeave(ev)
         if ev.type()==QtCore.QEvent.MouseMove:
             print('SDFGHJU')
             
@@ -257,8 +231,7 @@ class interaction_object( QtWidgets.QMainWindow ):
             nx,ny = closest_point()
             
             # initiate the smooth movement
-            w.smoothmove( cx,cy,nx,ny )
-    
+            w.teleport( nx,ny )
     
     def _spawn_followindows( self ):
         """Spawns predefined number of followindows."""
@@ -315,4 +288,4 @@ class interaction_object( QtWidgets.QMainWindow ):
         return actions
     
 #---------------------------------------------------------------------------+++
-# конец 2018.06.06 → 2021.03.31
+# конец 2021.03.30 → 2021.04.01
